@@ -105,7 +105,6 @@ int main(int argc, char* argv[]) {
             SOCKET node_socket = network_node.socket;
             
             if (FD_ISSET(node_socket, &reads)) {
-				printf("node %d (client=%d, state=%d) has sent information.\n", node_socket, client, instance_state);
                 if (node_socket == client) {
                     // check for new connection
                     struct sockaddr_storage peer_addr;
@@ -169,12 +168,10 @@ int main(int argc, char* argv[]) {
                     char* msg;
                     if (b_recv(node_socket, &msg) < 0) {
                         // if any error occurs, close the socket and remove from peer network
-						printf("Error reading message from peer.\n");
                         CLOSESOCKET(node_socket);
                         nsll_iter = network_sll.erase_after(nsll_iter);
                         continue;
                     }
-					printf("received message: %s\n", msg);
                     if (strcmp(msg, REQ_NET_ACCESS_STRING) == 0) {
                         // send other peers to new peer
                         auto k = network_sll.begin();

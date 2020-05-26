@@ -105,7 +105,6 @@ int b_recv(SOCKET from, char** buf_p) {
         int b = (int) recv(from, buf + bytes_recv, msg_size - bytes_recv, 0);
         if (b < 0) { return -1; }
         bytes_recv += b;
-		printf("bytes_recv=%d (%d)\n", bytes_recv, msg_size);
     }
     
     buf[bytes_recv] = '\0';  // network sent strings are not null terminators
