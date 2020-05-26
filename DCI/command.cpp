@@ -8,9 +8,7 @@
 
 #include "command.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
+#include <functional>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -93,7 +91,7 @@ int system_command::execute(string* buf_p) {
      system command should have 1 argument: the command itself.
      */
     string sys_c = get_args().front();
-    FILE* pipe = popen(sys_c.c_str(), "r");
+    FILE* pipe = POPEN(sys_c.c_str(), "r");
     if (pipe == nullptr) { return 1; }
     
     try {
@@ -102,11 +100,11 @@ int system_command::execute(string* buf_p) {
             buf_p->push_back(c);
         }
     } catch (...) {
-        pclose(pipe);
+        PCLOSE(pipe);
         return 1;
     }
     buf_p->push_back('\n');
-    pclose(pipe);
+    PCLOSE(pipe);
     return 0;
 }
 

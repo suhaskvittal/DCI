@@ -9,6 +9,9 @@
 #ifndef command_h
 #define command_h
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "network.h"
 #include "node.h"
 
@@ -76,6 +79,13 @@ public:
 };
 
 /* Executes a system command on the computer connected to the target socket. */
+#if defined(_WIN32)
+#define POPEN _popen
+#define PCLOSE _pclose
+#else
+#define POPEN popen
+#define PCLOSE pclose
+#endif
 class system_command : public command {
 public:
     system_command(std::list<std::string> args) :command("system", args) {}

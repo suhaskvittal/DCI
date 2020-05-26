@@ -8,15 +8,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "network.h"
+#include "node.h"
+#include "command.h"
+
 #if defined(WIN32)
 #include <conio.h>
 #endif
 
 #include <forward_list>
-
-#include "network.h"
-#include "node.h"
-#include "command.h"
 
 SOCKET client;
 int network_size;
@@ -25,14 +25,16 @@ std::forward_list<struct node> network_sll;
 static int instance_state;
 
 int main(int argc, char* argv[]) {
+	printf("Starting up...\n");
 #if defined(_WIN32)
     // init winsock
-    WSAWord d;
-    if (WSAStartup(MAKEWORD(2, 2), d)) {
+    WSADATA d;
+    if (WSAStartup(MAKEWORD(2, 2), &d)) {
         fprintf(stderr, "Winsock initialization failed.\n");
         return 1;
     }
 #endif
+    printf("Started. Initializing local instance...\n");
     SOCKET max_master_socket;
     fd_set master;
     FD_ZERO(&master);
@@ -40,11 +42,15 @@ int main(int argc, char* argv[]) {
     if (argc == 2) {
         // create new network instance
         char* port = argv[1];
+        printf("Port number: %s\n", port);
         if (init_local(port, &client)) {
+        	printf("Failed.\n");
             fprintf(stderr, "Initializing local instance failed (%d).\n", GETSOCKETERRNO());
             return 1;
         }
-        
+
+        printf("Initialized. Starting network...\n");
+
         max_master_socket = client;
         FD_SET(client, &master);
         add_to_network(NODE(client, "", port));
@@ -60,6 +66,8 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "Initializing local instance failed (%d).\n", GETSOCKETERRNO());
             return 1;
         }
+
+        printf("Connecting to access point...\n");
         if (connect_to_access(access_host, access_port, &access_peer)) {
             fprintf(stderr, "Connect to access point failed (%d).\n", GETSOCKETERRNO());
             return 1;
@@ -84,8 +92,9 @@ int main(int argc, char* argv[]) {
     
     printf("Instance initialized. Ready to send input to network: \n");
     while (1) {
+		struct timeval select_timeout = { 0, 100000 };  // 0.1 s timeout
         fd_set reads = master;
-        if (select(max_master_socket + 1, &reads, 0, 0, nullptr) < 0) {
+        if (select(max_master_socket + 1, &reads, 0, 0, &select_timeout) < 0) {
             fprintf(stderr, "select() failed (%d).\n", GETSOCKETERRNO());
             return 1;
         }
@@ -96,12 +105,17 @@ int main(int argc, char* argv[]) {
             SOCKET node_socket = network_node.socket;
             
             if (FD_ISSET(node_socket, &reads)) {
+				printf("node %d (client=%d, state=%d) has sent information.\n", node_socket, client, instance_state);
                 if (node_socket == client) {
                     // check for new connection
                     struct sockaddr_storage peer_addr;
+
                     socklen_t peer_addrlen = sizeof(struct sockaddr_storage);
-                    
+#if defined(_WIN32)
+                    SOCKET peer = accept(client, (struct sockaddr*) &peer_addr, (int*) &peer_addrlen);
+#else
                     SOCKET peer = accept(client, (struct sockaddr*) &peer_addr, &peer_addrlen);
+#endif
                     if (!ISVALIDSOCKET(peer)) {
                         fprintf(stderr, "accept() failed (%d).\n", GETSOCKETERRNO());
                         instance_state = INSTANCE_STATE_CLOSED;
@@ -155,17 +169,18 @@ int main(int argc, char* argv[]) {
                     char* msg;
                     if (b_recv(node_socket, &msg) < 0) {
                         // if any error occurs, close the socket and remove from peer network
+						printf("Error reading message from peer.\n");
                         CLOSESOCKET(node_socket);
                         nsll_iter = network_sll.erase_after(nsll_iter);
                         continue;
                     }
-                    
+					printf("received message: %s\n", msg);
                     if (strcmp(msg, REQ_NET_ACCESS_STRING) == 0) {
                         // send other peers to new peer
                         auto k = network_sll.begin();
                         int adjusted_network_size = network_size - 2;  // not sending client or peer
                         i_send(node_socket, adjusted_network_size);
-                        while (k != network_sll.end()) {
+						while (k != network_sll.end()) {
                             struct node n = *(k++);
                             if (n.socket == client || n.socket == node_socket) { continue; }  // the new peer has already connected to this socket
                             b_send(node_socket, (char*) n.ipv4_host.c_str());
@@ -204,8 +219,8 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-#if defined(WIN32)
-        if (_khbit()) {
+#if defined(_WIN32)
+        if (_kbhit()) {
 #else
         if (FD_ISSET(0, &reads)) {
 #endif

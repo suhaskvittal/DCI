@@ -22,9 +22,7 @@
 #define INSTANCE_STATE_ACCESS_PENDING 1
 
 #if defined(_WIN32)
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
-#endif
+#define _WIN32_WINNT _WIN32_WINNT_WINXP
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -62,5 +60,4 @@ int i_recv(SOCKET from, int* n_p);
 int i_send(SOCKET to, int n);
 
 char* format_string(char* orig);
-
 #endif /* network_h */

@@ -35,10 +35,10 @@ int init_local(char* port, SOCKET* socket_p) {
     // bind
     if (bind(server, bind_addr->ai_addr, bind_addr->ai_addrlen)) {
         fprintf(stderr, "bind() failed (%d). \n", GETSOCKETERRNO());
-        freeaddrinfo(hints); freeaddrinfo(bind_addr);
+        free(hints); freeaddrinfo(bind_addr);
         return 1;
     }
-    freeaddrinfo(hints); freeaddrinfo(bind_addr);
+    free(hints); freeaddrinfo(bind_addr);
     
     // listen
     if (listen(server, MAX_CONNECTIONS) < 0) {
@@ -105,6 +105,7 @@ int b_recv(SOCKET from, char** buf_p) {
         int b = (int) recv(from, buf + bytes_recv, msg_size - bytes_recv, 0);
         if (b < 0) { return -1; }
         bytes_recv += b;
+		printf("bytes_recv=%d (%d)\n", bytes_recv, msg_size);
     }
     
     buf[bytes_recv] = '\0';  // network sent strings are not null terminators
@@ -123,7 +124,6 @@ int b_send(SOCKET to, char* buf) {
         if (b < 0) { return -1; }
         bytes_sent += b;
     }
-    
     return 0;
 }
 
@@ -131,29 +131,37 @@ int i_recv(SOCKET from, int* n_p) {
     int n = 0;
     int bytes_recv = 0;
     while (bytes_recv < sizeof(int)) {
+#if defined(_WIN32)
+    	char k;
+		int b = (int) recv(from, &k, sizeof(k), 0);
+#else
         int k;
         int b = (int) recv(from, &k, sizeof(k) - bytes_recv, 0);
-        if (b < 0) { return -1; }
+#endif
+		if (b < 0) { return -1; }
         n = n << (b << 3);  // make space to insert k
         n = n | k;
         
         bytes_recv += b;
     }
-    
-    *n_p = ntohl(n);
+    *n_p = n;  // we practically did ntohl above
     return 0;
 }
 
-int i_send(SOCKET from, int n) {
+int i_send(SOCKET to, int n) {
     int k = htonl(n);
     int bytes_sent = 0;
     while (bytes_sent < sizeof(int)) {
-        int b = (int) send(from, &k, sizeof(k) - bytes_sent, 0);
+#if defined(_WIN32)
+    	char ch = k & 0xFF;  // get the last char in k
+    	int b = (int) send(to, &ch, sizeof(char), 0);
+#else
+        int b = (int) send(to, &k, sizeof(k) - bytes_sent, 0);
+#endif
         if (b < 0) { return -1; }
         k = k >> (b << 3);  // remove b bytes from n
         bytes_sent += b;
     }
-    
     return 0;
 }
 
