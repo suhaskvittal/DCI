@@ -127,37 +127,28 @@ int b_send(SOCKET to, char* buf) {
     return 0;
 }
 
+/* We'll send and receive integers little endian to not worry about network and host byte order. */
 int i_recv(SOCKET from, int* n_p) {
     int n = 0;
     int bytes_recv = 0;
     while (bytes_recv < sizeof(int)) {
-#if defined(_WIN32)
     	char k;
 		int b = (int) recv(from, &k, sizeof(k), 0);
-#else
-        int k;
-        int b = (int) recv(from, &k, sizeof(k) - bytes_recv, 0);
-#endif
 		if (b < 0) { return -1; }
-        n = n << (b << 3);  // make space to insert k
-        n = n | k;
+        n = (k << bytes_recv) | n;
         
         bytes_recv += b;
     }
-    *n_p = n;  // we practically did ntohl above
+    *n_p = n;
     return 0;
 }
 
 int i_send(SOCKET to, int n) {
-    int k = htonl(n);
+    int k = n;
     int bytes_sent = 0;
     while (bytes_sent < sizeof(int)) {
-#if defined(_WIN32)
     	char ch = k & 0xFF;  // get the last char in k
     	int b = (int) send(to, &ch, sizeof(char), 0);
-#else
-        int b = (int) send(to, &k, sizeof(k) - bytes_sent, 0);
-#endif
         if (b < 0) { return -1; }
         k = k >> (b << 3);  // remove b bytes from n
         bytes_sent += b;
