@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "network.h"
+#include "../include/network.h"
 
 #include <vector>
 
@@ -35,10 +35,10 @@ int init_local(char* port, SOCKET* socket_p) {
     // bind
     if (bind(server, bind_addr->ai_addr, bind_addr->ai_addrlen)) {
         fprintf(stderr, "bind() failed (%d). \n", GETSOCKETERRNO());
-        freeaddrinfo(hints); freeaddrinfo(bind_addr);
+        free(hints); freeaddrinfo(bind_addr);
         return 1;
     }
-    freeaddrinfo(hints); freeaddrinfo(bind_addr);
+    free(hints); freeaddrinfo(bind_addr);
     
     // listen
     if (listen(server, MAX_CONNECTIONS) < 0) {
@@ -116,51 +116,46 @@ int b_recv(SOCKET from, char** buf_p) {
 int b_send(SOCKET to, char* buf) {
     int msg_size = (int) strlen(buf);
     i_send(to, msg_size);
-    
     int bytes_sent = 0;
     while (bytes_sent < msg_size) {
         int b = (int) send(to, buf + bytes_sent, msg_size - bytes_sent, 0);
         if (b < 0) { return -1; }
         bytes_sent += b;
     }
-    
     return 0;
 }
 
+/* We'll send and receive integers little endian to not worry about network and host byte order. */
 int i_recv(SOCKET from, int* n_p) {
-    int n = 0;
+    int k = 0;
     int bytes_recv = 0;
     while (bytes_recv < sizeof(int)) {
-        int k;
-        int b = (int) recv(from, &k, sizeof(k) - bytes_recv, 0);
-        if (b < 0) { return -1; }
-        n = n << (b << 3);  // make space to insert k
-        n = n | k;
+        char ch[2];
+		if (recv(from, ch, sizeof(ch), 0) < 0) { return -1; }
+        k = ((ch[1] << 4 | ch[0]) << bytes_recv) | k;
         
-        bytes_recv += b;
+        bytes_recv++;
     }
-    
-    *n_p = ntohl(n);
+    *n_p = k;
     return 0;
 }
 
-int i_send(SOCKET from, int n) {
-    int k = htonl(n);
+int i_send(SOCKET to, int n) {
+    int k = n;
     int bytes_sent = 0;
     while (bytes_sent < sizeof(int)) {
-        int b = (int) send(from, &k, sizeof(k) - bytes_sent, 0);
-        if (b < 0) { return -1; }
-        k = k >> (b << 3);  // remove b bytes from n
-        bytes_sent += b;
+        char ch[2];
+        // send two four bit chunks to avoid overflow
+        ch[0] = k & 0xF; ch[1] = (k >> 4) & 0xF;
+        if (send(to, ch, sizeof(ch), 0) < 0) { return -1; }
+        k = k >> 8;
+        bytes_sent++;
     }
-    
     return 0;
 }
 
 char* format_string(char* orig) {
     std::vector<char> f_stack;
-    f_stack.push_back('\t');
-    f_stack.push_back('\t');
     
     std::vector<char> whitespace_stack;
     int k = 0;
@@ -175,7 +170,6 @@ char* format_string(char* orig) {
                 char w = whitespace_stack.back();
                 if (w == '\n') {
                     f_stack.push_back('\n');
-                    f_stack.push_back('\t');
                     f_stack.push_back('\t');
                 } else { f_stack.push_back(w); }
                 
