@@ -90,6 +90,8 @@ int connect_to_peer(char* host, char* port, SOCKET* socket_p) {
         fprintf(stderr, "connect() failed. (%d).\n", GETSOCKETERRNO());
         return 1;
     }
+    free(hints);
+    freeaddrinfo(peer_addr);
     *socket_p = peer;
     return 0;
 }

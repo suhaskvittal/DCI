@@ -28,16 +28,19 @@ int help_command::execute(string* buf_p) {
     } else {
         string cmd_request = get_args().front();
         
+        buf_p->push_back('\t');
         if (cmd_request == "network") {
             /* Print out sockets in network_sll */
             auto nsll_iter = network_sll.begin();
             while (nsll_iter != network_sll.end()) {
                 struct node network_node = *nsll_iter;
                 
+                if (nsll_iter != network_sll.begin()) { buf_p->push_back('\n'); }
+                buf_p->append("Socket " + to_string(network_node.socket) + " = ");
                 if (network_node.socket == client) {
-                    cout << "\tSocket " << network_node.socket << " = YOU" << endl;
+                    buf_p->append("YOU");
                 } else {
-                    cout << "\tSocket " << network_node.socket << " = " << network_node.ipv4_host << ":" << network_node.ipv4_port << " (IPv4:Port)" << endl;
+                    buf_p->append(network_node.ipv4_host + ":" + network_node.ipv4_port + " (IPv4:Port)");
                 }
                 nsll_iter++;
             }
