@@ -11,15 +11,21 @@
 #include "../include/node.h"
 #include "../include/command.h"
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <conio.h>
+#include <windows.h>
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
 #endif
 
-#include <iostream>
 
+#include <iostream>
 #include <forward_list>
 
 // TODO implement OpenSSL
+// TODO implement address sharing
+// TODO implement network closure signal
 
 using namespace std;
 
@@ -38,6 +44,13 @@ int main(int argc, char* argv[]) {
         cerr << "Winsock initialization failed." << endl;
         return 1;
     }
+
+    // enable ANSI color codes
+    HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(h_stdout, &mode);
+    mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(h_stdout, mode);
 #endif
     cout << "Started. Initializing local instance..." << endl;
     SOCKET max_master_socket;
