@@ -10,8 +10,6 @@
 
 #include "network.h"
 
-#include <string>
-
 struct node {
     SOCKET socket;
     std::string ipv4_host;

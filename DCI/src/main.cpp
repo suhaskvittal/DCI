@@ -6,6 +6,7 @@
 //
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "../include/node.h"
 #include "../include/command.h"
@@ -102,6 +103,7 @@ int main(int argc, char* argv[]) {
         }
         
         auto nsll_iter = network_sll.begin();
+        forward_list<struct node> sll;
         while (nsll_iter != network_sll.end()) {
             struct node network_node = *nsll_iter;
             SOCKET node_socket = network_node.socket;
@@ -171,7 +173,6 @@ int main(int argc, char* argv[]) {
                         // if any error occurs, close the socket and remove from peer network
                         FD_CLR(node_socket, &master);
                         CLOSESOCKET(node_socket);
-                        network_sll.remove(network_node);
                         continue;
                     }
                     if (strcmp(msg, REQ_NET_ACCESS_STRING) == 0) {
@@ -219,9 +220,12 @@ int main(int argc, char* argv[]) {
                     free(msg);
                 }
             } /* FD_ISSET */
+            sll.push_front(network_node);
             nsll_iter++;
         } /* while */
-        
+        // at the end of the loop, replace current network sll with the new sll
+        network_sll.clear();
+        network_sll = sll;
         if (instance_state == INSTANCE_STATE_CLOSED) {
             cout << "Closing socket..." << endl;
             // do something

@@ -18,6 +18,7 @@
 #include <string>
 #include <forward_list>
 #include <list>
+#include <vector>
 
 extern SOCKET client;
 extern std::forward_list<struct node> network_sll;

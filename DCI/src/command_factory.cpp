@@ -15,6 +15,7 @@ using namespace std;
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 
 extern unordered_map<SOCKET, string> dir;
 
