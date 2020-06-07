@@ -1,22 +1,26 @@
 //
-//  main.c
+//  main.cpp
 //  DCI
 //
 //  Created by Suhas Vittal on 5/17/20.
 //
 
-#include <stdio.h>
 #include <stdlib.h>
 
-#include "network.h"
-#include "node.h"
-#include "command.h"
+#include "../include/node.h"
+#include "../include/command.h"
 
 #if defined(WIN32)
 #include <conio.h>
 #endif
 
+#include <iostream>
+
 #include <forward_list>
+
+// TODO implement OpenSSL
+
+using namespace std;
 
 SOCKET client;
 int network_size;
@@ -25,16 +29,16 @@ std::forward_list<struct node> network_sll;
 static int instance_state;
 
 int main(int argc, char* argv[]) {
-	printf("Starting up...\n");
+    cout << "Starting up..." << endl;
 #if defined(_WIN32)
     // init winsock
     WSADATA d;
     if (WSAStartup(MAKEWORD(2, 2), &d)) {
-        fprintf(stderr, "Winsock initialization failed.\n");
+        cerr << "Winsock initialization failed." << endl;
         return 1;
     }
 #endif
-    printf("Started. Initializing local instance...\n");
+    cout << "Started. Initializing local instance..." << endl;
     SOCKET max_master_socket;
     fd_set master;
     FD_ZERO(&master);
@@ -42,14 +46,12 @@ int main(int argc, char* argv[]) {
     if (argc == 2) {
         // create new network instance
         char* port = argv[1];
-        printf("Port number: %s\n", port);
         if (init_local(port, &client)) {
-        	printf("Failed.\n");
-            fprintf(stderr, "Initializing local instance failed (%d).\n", GETSOCKETERRNO());
+            cerr << "Initializing local instance failed (" << GETSOCKETERRNO() << ")." << endl;
             return 1;
         }
 
-        printf("Initialized. Starting network...\n");
+        cout << "Initialized. Starting network..." << endl;
 
         max_master_socket = client;
         FD_SET(client, &master);
@@ -63,13 +65,13 @@ int main(int argc, char* argv[]) {
         
         SOCKET access_peer;
         if (init_local(client_port, &client)) {
-            fprintf(stderr, "Initializing local instance failed (%d).\n", GETSOCKETERRNO());
+            cerr << "Initializing local instance failed (" << GETSOCKETERRNO() << ")." << endl;
             return 1;
         }
 
         printf("Connecting to access point...\n");
         if (connect_to_access(access_host, access_port, &access_peer)) {
-            fprintf(stderr, "Connect to access point failed (%d).\n", GETSOCKETERRNO());
+            cerr <<  "Connect to access point failed (" << GETSOCKETERRNO() << ")." << endl;
             return 1;
         }
         
@@ -82,7 +84,7 @@ int main(int argc, char* argv[]) {
         
         instance_state = INSTANCE_STATE_ACCESS_PENDING;
     } else {
-        printf("usage: main <local-port> or main <local-port> <target-host> <target-port>\n");
+        cout << "usage: main <local-port> or main <local-port> <target-host> <target-port>" << endl;
         return 1;
     }
     
@@ -90,12 +92,12 @@ int main(int argc, char* argv[]) {
     FD_SET(0, &master);  // 0 is file descriptor for stdin on UNIX and LINUX
 #endif
     
-    printf("Instance initialized. Ready to send input to network: \n");
+    cout << "Instance initialized. Ready to send input to network (to close your connection to the network, type \"" << EXIT_KEYWORD << "\"): " << endl;
     while (1) {
 		struct timeval select_timeout = { 0, 100000 };  // 0.1 s timeout
         fd_set reads = master;
         if (select(max_master_socket + 1, &reads, 0, 0, &select_timeout) < 0) {
-            fprintf(stderr, "select() failed (%d).\n", GETSOCKETERRNO());
+            cerr << "select() failed (" << GETSOCKETERRNO() << ")." << endl;
             return 1;
         }
         
@@ -116,7 +118,7 @@ int main(int argc, char* argv[]) {
                     SOCKET peer = accept(client, (struct sockaddr*) &peer_addr, &peer_addrlen);
 #endif
                     if (!ISVALIDSOCKET(peer)) {
-                        fprintf(stderr, "accept() failed (%d).\n", GETSOCKETERRNO());
+                        cerr << "accept() failed (" << GETSOCKETERRNO() << ")." << endl;
                         instance_state = INSTANCE_STATE_CLOSED;
                         break;
                     }
@@ -129,8 +131,7 @@ int main(int argc, char* argv[]) {
                                 host_buf, sizeof(host_buf),
                                 port_buf, sizeof(port_buf),
                                 NI_NUMERICHOST | NI_NUMERICSERV);
-                    printf("\t%s %s has connected to network using this instance as the access point.\n", host_buf, port_buf);
-                    // add peer to fd_set and the sll
+                    cout << "\t" << host_buf << " " << port_buf << " has connected to the network." << endl;  // add peer to fd_set and the sll
                     FD_SET(peer, &master);
                     add_to_network(NODE(peer, host_buf, port_buf));
                     
@@ -146,11 +147,11 @@ int main(int argc, char* argv[]) {
                     */
                     int n_peers;
                     i_recv(node_socket, &n_peers);
-                    printf("\tReceiving %d peers from access point. (%x)\n", n_peers, n_peers);
+                    cout << "\tReceiving " << n_peers << " peers from access point." << endl;
                     for (int i = 0; i < n_peers; i++) {
                         char* host_buf; char* port_buf;
                         if (b_recv(node_socket, &host_buf) < 0 || b_recv(node_socket, &port_buf) < 0) {
-                            fprintf(stderr, "Network access failed (%d).\n", GETSOCKETERRNO());
+                            cerr << "Network access failed (" << GETSOCKETERRNO() << ")." << endl;
                             instance_state = INSTANCE_STATE_CLOSED;
                             break;
                         }
@@ -162,14 +163,15 @@ int main(int argc, char* argv[]) {
                         add_to_network(NODE(peer, host_buf, port_buf));
                     }
                     if (instance_state == INSTANCE_STATE_CLOSED) { break; }  // some error has occurred
-                    printf("\tSucceeded connecting to network.\n");
+                    cout << "\tSucceeded connecting to network." << endl;
                     instance_state = INSTANCE_STATE_DEFAULT;
                 } else if (instance_state == INSTANCE_STATE_DEFAULT) {
                     char* msg;
                     if (b_recv(node_socket, &msg) < 0) {
                         // if any error occurs, close the socket and remove from peer network
+                        FD_CLR(node_socket, &master);
                         CLOSESOCKET(node_socket);
-                        nsll_iter = network_sll.erase_after(nsll_iter);
+                        network_sll.remove(network_node);
                         continue;
                     }
                     if (strcmp(msg, REQ_NET_ACCESS_STRING) == 0) {
@@ -185,23 +187,33 @@ int main(int argc, char* argv[]) {
                         }
                     } else if (strcmp(msg, REQ_CMD_SENT) == 0) {
                         char* buf;
-                        recv_and_parse(node_socket, &buf);
-                        // send the buffer output back to the sender
-                        b_send(node_socket, (char*) REQ_TXT_SENT);  // indicate we are sending text
-                        b_send(node_socket, buf);
+                        if (!recv_and_parse(node_socket, &buf)) {
+                            // send the buffer output back to the sender
+                            if (strlen(buf) > 0) {
+                                b_send(node_socket, (char*) REQ_TXT_SENT);  // indicate we are sending text
+                                b_send(node_socket, buf);
+                            }
+                        } else {
+                            b_send(node_socket, (char*) REQ_TXT_SENT);  // indicate we are sending text
+                            b_send(node_socket, (char*) "An error has occurred.\0");
+                        }
                     } else if (strcmp(msg, REQ_TXT_SENT) == 0) {
                         // simply print the text that was sent
                         char* buf;
-                        if (b_recv(node_socket, &buf) < 0) { printf("\tMessage from node %d not received.\n", node_socket); }
+                        if (b_recv(node_socket, &buf) < 0) { cout << "\tMessage from node " << node_socket << " not received." << endl; }
                         else {
                             char* fbuf = format_string(buf);
-                            printf("\tFrom node %d:\n%s\n", node_socket, fbuf);
+                            string s = "[" + to_string(node_socket) + "]: " +  fbuf;
+                            cout << color_peer(s) << endl;
                             free(buf);
                             free(fbuf);
                         }
-                    } else if (strcmp(msg, REQ_AUTH_SENT) == 0) {
-                        auth_provided(node_socket);
-                        printf("\tSocket %d has given you authentication.\n", node_socket);
+                    } else if (strcmp(msg, REQ_AUTH_YES_SENT) == 0) {
+                        give_auth(node_socket);
+                        cout << "\tSocket " << node_socket << " has given you authentication." << endl;
+                    } else if (strcmp(msg, REQ_AUTH_NO_SENT) == 0) {
+                        remove_auth(node_socket);
+                        cout << "\tSocket " << node_socket << " has revoked your authentication. You can no longer perform privileged commands that affect their system." << endl;
                     }
                     
                     free(msg);
@@ -211,7 +223,7 @@ int main(int argc, char* argv[]) {
         } /* while */
         
         if (instance_state == INSTANCE_STATE_CLOSED) {
-            printf("Closing socket...\n");
+            cout << "Closing socket..." << endl;
             // do something
             break;
         }
@@ -224,9 +236,14 @@ int main(int argc, char* argv[]) {
             char msg[MAX_MSG_SIZE + 1];
             if (!fgets(msg, sizeof(msg), stdin)) { break; }
             msg[MAX_MSG_SIZE] = '\0';
+            
+            if (strncmp(msg, (char*) EXIT_KEYWORD, strlen(EXIT_KEYWORD)) == 0) {
+                break;
+            }
             parse_and_send(msg);
         }
     }
+    cout << "Closing down..." << endl;
     CLOSESOCKET(client);
 #if defined(WIN32)
     WSACleanup();  // shutdown winsock
@@ -237,4 +254,20 @@ int main(int argc, char* argv[]) {
 void add_to_network(struct node node) {
     network_sll.push_front(node);
     network_size++;
+}
+    
+std::string color_client(std::string s) {
+    return CLIENT_MSG_COLOR + s + ANSI_COLOR_RESET;
+}
+    
+std::string color_client(char* s) {
+    return color_client(std::string(s));
+}
+
+std::string color_peer(std::string s) {
+    return PEER_MSG_COLOR + s + ANSI_COLOR_RESET;
+}
+
+std::string color_peer(char* s) {
+    return color_peer(std::string(s));
 }
