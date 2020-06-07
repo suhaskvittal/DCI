@@ -2,3 +2,5 @@ DCI.xcodeproj
 /.metadata/
 *.exe
 DCI/data/
+valgrind-log
+DCI/*.dSYM
