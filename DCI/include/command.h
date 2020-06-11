@@ -27,11 +27,12 @@ extern int network_size;
 #define IS_DELIMITER(c) (c == ' ' || c == '\n')
 
 /* HELP MACROS */
-#define SYSTEM_CMD_HELP "system command usage (sends a command to run to a target socket; REQUIRES AUTH): system <socket> <cmd>\n"
-#define HELP_CMD_HELP "show sockets: help network\n"
+#define HELP_CMD_HELP "show sockets: help network\nclose connection: exit\n"
 #define AUTH_CMD_HELP "auth command usage (authenticates a given socket): auth <socket>\n"
+#define BLOCK_CMD_HELP "block command usage (de-authenticates a given socket): auth <socket>\n"
 #define MSG_CMD_HELP "msg command usage (sends a list of messages to a target socket): msg <socket> <msg_1> <msg_2> ... <msg_n>\n"
 #define FILE_CMD_HELP "file command usage (send/get a file from a peer, or change file access level; REQUIRES AUTH): (file send) file send <target> <src> <dst>, (file get) file get <target> <src> <dst>, (file access; levels are open, safe (only sending), closed (nothing allowed)) file access <level>\n"
+#define SYSTEM_CMD_HELP "system command usage (sends a command to run to a target socket; REQUIRES AUTH): system <socket> <cmd>\n"
 
 /* COMMAND CLASSES */
 #define EXEC_RESULT_SUCCESS 0

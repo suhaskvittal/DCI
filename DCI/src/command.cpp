@@ -16,6 +16,7 @@ using namespace std;
 static vector<string> help_cmd_list = {
     HELP_CMD_HELP,
     AUTH_CMD_HELP,
+    BLOCK_CMD_HELP,
     FILE_CMD_HELP,
     MSG_CMD_HELP,
     SYSTEM_CMD_HELP

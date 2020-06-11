@@ -23,7 +23,6 @@
 #include <forward_list>
 
 // TODO implement OpenSSL
-// TODO implement network closure signal
 
 using namespace std;
 
