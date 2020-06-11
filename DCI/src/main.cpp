@@ -176,6 +176,7 @@ int main(int argc, char* argv[]) {
                         FD_CLR(node_socket, &master);
                         CLOSESOCKET(node_socket);
                         nsll_curr = network_sll.erase_after(nsll_prev);
+                        delete network_node;
                         cout << color_error("Closing connection with node " + to_string(node_socket) + ".") << endl;
                         continue;
                     }
@@ -186,6 +187,7 @@ int main(int argc, char* argv[]) {
                             FD_CLR(node_socket, &master);
                             CLOSESOCKET(node_socket);
                             nsll_curr = network_sll.erase_after(nsll_prev);
+                            delete network_node;
                             cout << color_error("Closing connection with node " + to_string(node_socket) + ".") << endl;
                             continue;  // just close the connection with the peer
                         }
@@ -264,6 +266,11 @@ int main(int argc, char* argv[]) {
         }
     }
     // Clean up all the memory that has been allocated
+    auto nsll_iter = network_sll.begin();
+    while (nsll_iter != network_sll.end()) {
+        delete *nsll_iter;
+        nsll_iter++;
+    }
     network_sll.clear();
         
     cout << color_client("Closing down...") << endl;

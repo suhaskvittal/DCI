@@ -37,7 +37,7 @@ int parse_and_send(char* input) {
         }
         char* fbuf = format_string((char*) buf.c_str());
         cout << color_client(fbuf) << endl;
-        free(fbuf);
+        delete[] fbuf;
     } else {
         if (send_command(target, cmd, {})) {
             cerr << "Command transmit failed. Make sure all preparations, such as authentication, has been completed." << endl;
@@ -62,21 +62,24 @@ int recv_and_parse(SOCKET from, char** buf_p) {
         if (b_recv(from, &arg_buf) < 0) { return 1; }
         cmd_args.push_back(string(arg_buf));
         n_args--;
-        free(arg_buf);
+        delete[] arg_buf;
     }
     command* cmd = initializer_map[string(cmd_name_buf)](cmd_args);
     
     string buf;
     int res = cmd->execute(&buf);
+    delete[] cmd_name_buf;
     if (res == EXEC_RESULT_FAILURE) {
-        cerr << "Command execution failed.\n" << endl;
+        cerr << color_error("Command execution failed.") << endl;
+        delete cmd;
         return 1;
     } else if (res == EXEC_RESULT_BOUNCE_FGET) {
-        return send_command(from, cmd, { EXEC_RESEND_TOKEN });
+        int r = send_command(from, cmd, { EXEC_RESEND_TOKEN });
+        delete cmd;
+        return r;
     } else {
         *buf_p = (char*) buf.c_str();
         delete cmd;
-        free(cmd_name_buf);
     }
     return 0;
 }
