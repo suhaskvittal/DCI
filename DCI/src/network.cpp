@@ -5,6 +5,9 @@
 //  Created by Suhas Vittal on 5/22/20.
 //
 
+/* MOSTLY LEGACY C CODE */
+// TODO convert C code into C++ code
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +16,11 @@
 
 #include <vector>
 
+static char* client_port;
+
 int init_local(char* port, SOCKET* socket_p) {
+    // set global client_port string to the port passed
+    client_port = port;
     // get local address
     struct addrinfo* hints = (struct addrinfo*) calloc(1, sizeof(struct addrinfo));
     if (hints == nullptr) { return 1; }
@@ -55,7 +62,7 @@ int connect_to_access(char* access_host, char* access_port, SOCKET* socket_p) {
         return 1;  // 1 = ERROR in connecting to access host/peer
     }
     
-    /* upon connection, we should send the peer an indication that we need the peer list.
+    /* upon connection, we should send the peer an indication that we need the peer list and our port for other users to connect to.
     */
     
     if (b_send(*socket_p, (char*)REQ_NET_ACCESS_STRING) < 0) {
@@ -93,6 +100,13 @@ int connect_to_peer(char* host, char* port, SOCKET* socket_p) {
     free(hints);
     freeaddrinfo(peer_addr);
     *socket_p = peer;
+    
+    // send the peer our port in case they need to share our address
+    if (b_send(*socket_p, (char*)REQ_PORT_SENT) < 0
+        || b_send(*socket_p, client_port) < 0) {
+        return 1;
+    }
+    
     return 0;
 }
 
@@ -101,7 +115,7 @@ int b_recv(SOCKET from, char** buf_p) {
     i_recv(from, &msg_size);
     if (msg_size <= 0) { return -1; }
     int bytes_recv = 0;
-    char* buf = (char*) malloc((msg_size + 1) * sizeof(char));
+    char* buf = new char[msg_size + 1];
     if (buf == nullptr) { return -1; }
     while (bytes_recv < msg_size) {
         int b = (int) recv(from, buf + bytes_recv, msg_size - bytes_recv, 0);
@@ -181,7 +195,7 @@ char* format_string(char* orig) {
         }
     }
     
-    char* s = (char*) malloc((f_stack.size() + 1) * sizeof(char));
+    char* s = new char[f_stack.size() + 1];
     int length = 0;
     while (length < f_stack.size()) { s[length] = f_stack[length]; length++;}
     s[length] = '\0';

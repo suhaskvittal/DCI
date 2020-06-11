@@ -21,7 +21,7 @@
 #include <vector>
 
 extern SOCKET client;
-extern std::forward_list<struct node> network_sll;
+extern std::forward_list<struct node*> network_sll;
 extern int network_size;
 
 #define IS_DELIMITER(c) (c == ' ' || c == '\n')

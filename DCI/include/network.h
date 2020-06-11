@@ -10,10 +10,12 @@
 
 #define CLIENT_MSG_COLOR "\x1b[93m"
 #define PEER_MSG_COLOR "\x1b[92m"
+#define ERROR_MSG_COLOR "\x1b[91m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
 #define MAX_CONNECTIONS 100
 
+#define REQ_PORT_SENT "SENT_PORT"
 #define REQ_NET_ACCESS_STRING "NEED_NTWK_ACCESS"
 #define REQ_CMD_SENT "SENT_CMD"
 #define REQ_TXT_SENT "SENT_TXT"
@@ -71,8 +73,7 @@ char* format_string(char* orig);
 #include <string>
 
 std::string color_client(std::string s);
-std::string color_client(char* s);
 std::string color_peer(std::string s);
-std::string color_peer(char* s);
+std::string color_error(std::string s);
 
 #endif /* network_h */

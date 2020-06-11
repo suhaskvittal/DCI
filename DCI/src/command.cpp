@@ -33,14 +33,14 @@ int help_command::execute(string* buf_p) {
             /* Print out sockets in network_sll */
             auto nsll_iter = network_sll.begin();
             while (nsll_iter != network_sll.end()) {
-                struct node network_node = *nsll_iter;
+                struct node* network_node = *nsll_iter;
                 
                 if (nsll_iter != network_sll.begin()) { buf_p->push_back('\n'); }
-                buf_p->append("Socket " + to_string(network_node.socket) + " = ");
-                if (network_node.socket == client) {
+                buf_p->append("Socket " + to_string(network_node->socket) + " = ");
+                if (network_node->socket == client) {
                     buf_p->append("YOU");
                 } else {
-                    buf_p->append(network_node.ipv4_host + ":" + network_node.ipv4_port + " (IPv4:Port)");
+                    buf_p->append(network_node->ipv4_host + ":" + network_node->ipv4_port + " (IPv4:Port)");
                 }
                 nsll_iter++;
             }
@@ -85,7 +85,7 @@ int msg_command::execute(string* buf_p) {
     }
     b_send(target, (char*) concat_msg.c_str());
     
-    *buf_p = "[YOU]: " + concat_msg;
+    *buf_p = "TO [" + to_string(target) + "]: " + concat_msg;
     return 0;
 }
 
