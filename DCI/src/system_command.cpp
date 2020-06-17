@@ -6,7 +6,7 @@
 //  Copyright © 2020 Suhas Vittal. All rights reserved.
 //
 
-#include "../include/command.h"
+#include "../include/system_command.h"
 
 #include <iostream>
 #include <unordered_map>

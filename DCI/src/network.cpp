@@ -5,15 +5,24 @@
 //  Created by Suhas Vittal on 5/22/20.
 //
 
+/* MOSTLY LEGACY C CODE */
+// TODO convert C code into C++ code
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../include/network.h"
 
+#include <iostream>
 #include <vector>
 
+
+static char* client_port;
+
 int init_local(char* port, SOCKET* socket_p) {
+    // set global client_port string to the port passed
+    client_port = port;
     // get local address
     struct addrinfo* hints = (struct addrinfo*) calloc(1, sizeof(struct addrinfo));
     if (hints == nullptr) { return 1; }
@@ -55,7 +64,7 @@ int connect_to_access(char* access_host, char* access_port, SOCKET* socket_p) {
         return 1;  // 1 = ERROR in connecting to access host/peer
     }
     
-    /* upon connection, we should send the peer an indication that we need the peer list.
+    /* upon connection, we should send the peer an indication that we need the peer list and our port for other users to connect to.
     */
     
     if (b_send(*socket_p, (char*)REQ_NET_ACCESS_STRING) < 0) {
@@ -93,6 +102,13 @@ int connect_to_peer(char* host, char* port, SOCKET* socket_p) {
     free(hints);
     freeaddrinfo(peer_addr);
     *socket_p = peer;
+    
+    // send the peer our port in case they need to share our address
+    if (b_send(*socket_p, (char*)REQ_PORT_SENT) < 0
+        || b_send(*socket_p, client_port) < 0) {
+        return 1;
+    }
+    
     return 0;
 }
 
@@ -101,30 +117,33 @@ int b_recv(SOCKET from, char** buf_p) {
     i_recv(from, &msg_size);
     if (msg_size <= 0) { return -1; }
     int bytes_recv = 0;
-    char* buf = (char*) malloc((msg_size + 1) * sizeof(char));
+    char* buf = new char[msg_size + 1];
     if (buf == nullptr) { return -1; }
     while (bytes_recv < msg_size) {
         int b = (int) recv(from, buf + bytes_recv, msg_size - bytes_recv, 0);
         if (b < 0) { return -1; }
         bytes_recv += b;
     }
-    
     buf[bytes_recv] = '\0';  // network sent strings are not null terminators
     *buf_p = buf;
-    
     return bytes_recv;
 }
 
-int b_send(SOCKET to, char* buf) {
-    int msg_size = (int) strlen(buf);
-    i_send(to, msg_size);
+/* This variant should be used for file data as files may have the NULL character. */
+int b_send(SOCKET to, char* buf, unsigned long buf_size) {
+    i_send(to, (int) buf_size);
     int bytes_sent = 0;
-    while (bytes_sent < msg_size) {
-        int b = (int) send(to, buf + bytes_sent, msg_size - bytes_sent, 0);
+    while (bytes_sent < buf_size) {
+        int b = (int) send(to, buf + bytes_sent, buf_size - bytes_sent, 0);
         if (b < 0) { return -1; }
         bytes_sent += b;
     }
     return 0;
+}
+
+int b_send(SOCKET to, char* buf) {
+    int msg_size = (int) strlen(buf);
+    return b_send(to, buf, msg_size);
 }
 
 /* We'll send and receive integers little endian to not worry about network and host byte order. */
@@ -134,7 +153,10 @@ int i_recv(SOCKET from, int* n_p) {
     while (bytes_recv < sizeof(int)) {
         char ch[2];
 		if (recv(from, ch, sizeof(ch), 0) < 0) { return -1; }
-        k = ((ch[1] << 4 | ch[0]) << bytes_recv) | k;
+        k = (
+             ((ch[1] << 4) | ch[0])
+                << (bytes_recv << 3)
+             ) | k;
         
         bytes_recv++;
     }
@@ -156,37 +178,3 @@ int i_send(SOCKET to, int n) {
     return 0;
 }
 
-char* format_string(char* orig) {
-    std::vector<char> f_stack;
-    
-    std::vector<char> whitespace_stack;
-    int k = 0;
-    while (orig[k] != '\0') {
-        char c = orig[k++];
-        
-        if (c == '\n' || c == ' ' || c == '\t') {
-            whitespace_stack.push_back(c);
-        } else {
-            // dump the whitespace stack
-            while (whitespace_stack.size() > 0) {
-                char w = whitespace_stack.back();
-                if (w == '\n') {
-                    f_stack.push_back('\n');
-                    f_stack.push_back('\t');
-                } else { f_stack.push_back(w); }
-                
-                whitespace_stack.pop_back();
-            }
-            f_stack.push_back(c);
-        }
-    }
-    
-    char* s = (char*) malloc((f_stack.size() + 1) * sizeof(char));
-    int length = 0;
-    while (length < f_stack.size()) { s[length] = f_stack[length]; length++;}
-    s[length] = '\0';
-    f_stack.clear();
-    whitespace_stack.clear();
-    
-    return s;
-}
