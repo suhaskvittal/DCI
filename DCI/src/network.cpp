@@ -14,7 +14,9 @@
 
 #include "../include/network.h"
 
+#include <iostream>
 #include <vector>
+
 
 static char* client_port;
 
@@ -122,23 +124,26 @@ int b_recv(SOCKET from, char** buf_p) {
         if (b < 0) { return -1; }
         bytes_recv += b;
     }
-    
     buf[bytes_recv] = '\0';  // network sent strings are not null terminators
     *buf_p = buf;
-    
     return bytes_recv;
 }
 
-int b_send(SOCKET to, char* buf) {
-    int msg_size = (int) strlen(buf);
-    i_send(to, msg_size);
+/* This variant should be used for file data as files may have the NULL character. */
+int b_send(SOCKET to, char* buf, unsigned long buf_size) {
+    i_send(to, (int) buf_size);
     int bytes_sent = 0;
-    while (bytes_sent < msg_size) {
-        int b = (int) send(to, buf + bytes_sent, msg_size - bytes_sent, 0);
+    while (bytes_sent < buf_size) {
+        int b = (int) send(to, buf + bytes_sent, buf_size - bytes_sent, 0);
         if (b < 0) { return -1; }
         bytes_sent += b;
     }
     return 0;
+}
+
+int b_send(SOCKET to, char* buf) {
+    int msg_size = (int) strlen(buf);
+    return b_send(to, buf, msg_size);
 }
 
 /* We'll send and receive integers little endian to not worry about network and host byte order. */
@@ -148,7 +153,10 @@ int i_recv(SOCKET from, int* n_p) {
     while (bytes_recv < sizeof(int)) {
         char ch[2];
 		if (recv(from, ch, sizeof(ch), 0) < 0) { return -1; }
-        k = ((ch[1] << 4 | ch[0]) << bytes_recv) | k;
+        k = (
+             ((ch[1] << 4) | ch[0])
+                << (bytes_recv << 3)
+             ) | k;
         
         bytes_recv++;
     }
@@ -170,37 +178,3 @@ int i_send(SOCKET to, int n) {
     return 0;
 }
 
-char* format_string(char* orig) {
-    std::vector<char> f_stack;
-    
-    std::vector<char> whitespace_stack;
-    int k = 0;
-    while (orig[k] != '\0') {
-        char c = orig[k++];
-        
-        if (c == '\n' || c == ' ' || c == '\t') {
-            whitespace_stack.push_back(c);
-        } else {
-            // dump the whitespace stack
-            while (whitespace_stack.size() > 0) {
-                char w = whitespace_stack.back();
-                if (w == '\n') {
-                    f_stack.push_back('\n');
-                    f_stack.push_back('\t');
-                } else { f_stack.push_back(w); }
-                
-                whitespace_stack.pop_back();
-            }
-            f_stack.push_back(c);
-        }
-    }
-    
-    char* s = new char[f_stack.size() + 1];
-    int length = 0;
-    while (length < f_stack.size()) { s[length] = f_stack[length]; length++;}
-    s[length] = '\0';
-    f_stack.clear();
-    whitespace_stack.clear();
-    
-    return s;
-}

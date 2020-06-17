@@ -7,6 +7,12 @@
 //
 
 #include "../include/command.h"
+#include "../include/auth_command.h"
+#include "../include/alias_command.h"
+#include "../include/help_command.h"
+#include "../include/msg_command.h"
+#include "../include/system_command.h"
+#include "../include/file_command.h"
 
 using namespace std;
 
@@ -21,37 +27,40 @@ extern unordered_map<SOCKET, string> dir;
 
 typedef function<command*(list<string>)> init_f;
 unordered_map<string, init_f> initializer_map = {
-    { "system", [](list<string> args) { return new system_command(args); } },
     { "help", [](list<string> args) { return new help_command(args); } },
+    { "alias", [](list<string> args) { return new alias_command(args); } },
     { "auth", [](list<string> args) { return new auth_command(args); } },
     { "block", [](list<string> args) { return new block_command(args); } },
-    { "msg", [](list<string> args) { return new msg_command(args); } },
     { "file", [](list<string> args) -> command* {
         string fcmd_t = args.back();  // don't remove, this will make cmd sending easier
+        if (fcmd_t == "access") {
+            return new file_command(fcmd_t, args, "", "");
+        }
         string client_dir;
         if (dir.count(client)) {
-            client_dir = string(dir[client]);
+            client_dir = string(dir[client]);  // get current directory on client if not root
         }
         
         string peer_dir;
         SOCKET peer;
         
         try {
-            if (fcmd_t == "send") {
-                peer = (SOCKET) stoi(args.front());
-            } else {
-                peer = (SOCKET) stoi(args.front());
+            peer = (SOCKET) stoi(args.front());
+            if (fcmd_t == "get") {
                 args.pop_front();
             }
             if (dir.count(peer)) {
-                peer_dir = dir[peer];
+                peer_dir = dir[peer];  // get current directory on peer if not root
             }
             return new file_command(fcmd_t, args, client_dir, peer_dir);
         } catch (...) {
             // return invalid command due to bad cast
             return new invalid_command();
         }
-    } }
+    } },
+    { "msg", [](list<string> args) { return new msg_command(args); } },
+    { "system", [](list<string> args) { return new system_command(args); } },
+    { "unalias", [](list<string> args) { return new unalias_command(args); } }
 };
 
 static unordered_set<string> target_is_argument = {
@@ -62,9 +71,11 @@ static unordered_set<string> target_is_argument = {
 static unordered_set<string> client_only = {
     // highest type level that indicates client only
     "help",
+    "alias",
     "auth",
     "block",
     "msg",
+    "unalias",
     "send",     // file sub type
     "access"    // file sub type
 };
@@ -116,4 +127,19 @@ command* build_command(list<string> args, SOCKET* target_p) {
             return new invalid_command();
         }
     }
+}
+
+command* create_command(string input, SOCKET* socket_p) {
+    /* all command inputs come in format: <cmd_name> <socket> <arg1> <arg2> ... <argn> */
+    
+    list<string> cmd_args;
+    process_input(input, &cmd_args);
+    command* cmd = build_command(cmd_args, socket_p);
+    if (!cmd->is_valid()) {
+        delete cmd;  // make room for a new instance
+        cmd = new invalid_command();
+        *socket_p = client;  // execute the output of cmd on the client's instance
+    }
+    
+    return cmd;
 }

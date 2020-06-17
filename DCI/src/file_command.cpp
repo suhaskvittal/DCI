@@ -7,9 +7,10 @@
 //
 
 
-#include "../include/command.h"
+#include "../include/file_command.h"
 
-#include <fstream>
+#include <stdio.h>
+
 #include <iostream>
 #include <vector>
 #include <unordered_set>
@@ -23,7 +24,6 @@ int file_command::execute(string* buf_p) {
     /*
      check the cmd type and call the respective function
      */
-    cout << "cmd type: " << cmd_type << endl;
     if (cmd_type == "send") { return file_send(buf_p); }
     else if (cmd_type == "get") { return file_get(buf_p); }
     else if (cmd_type == "access") { return file_access(buf_p); }
@@ -56,26 +56,16 @@ int file_command::file_send(string* buf_p) {
     if (token == EXEC_RESEND_TOKEN) {
         // save file data to indicated file
         iter++;  // skip socket target
-        string file_data(move(*iter++));
+        string data(move(*iter++));
         string dest(move(*iter++));
-        ofstream os(dest);
-        if (!os) { *buf_p = FILE_SEND_FAILURE; return 1; }
-        os << file_data << "\n";
-        os.flush();
-        os.close();
-        *buf_p = FILE_SEND_SUCCESS;
+        if (write_f(dest, data)) { return 1; }
     } else {
         // get file data from indicated file
         SOCKET target = (SOCKET) stoi(token);
-        ifstream is(*iter);
+        string src = *iter;
         string data;
-        while (is) {
-            string content;
-            getline(is, content);
-            data += content + "\n";
-        }
+        if (read_f(src, &data)) { return 1; }
         *iter = data;
-        
         command* cpy_cmd = new file_command(cmd_type, args);  // create copy of the command
         if (send_command(target, cpy_cmd, { EXEC_RESEND_TOKEN })) {
             return 1;
@@ -102,28 +92,18 @@ int file_command::file_get(string* buf_p) {
      this by appending a token to the beginning of the arg list. */
     
     auto iter = args.begin();
-    string token(move(*iter++));
+    string token(move(*iter));
     
     if (token == EXEC_RESEND_TOKEN) {
         // then second call on peer side
-        string file_data(move(*iter++));
+        iter++;
+        string data(move(*iter++));
         string dest(move(*iter++));
-        
-        ofstream os(dest);
-        if (!os) { return 1; }
-        os << file_data << "\n";
-        os.flush(); os.close();
-        return 0;
+        return write_f(dest, data);
     } else {
-        ifstream is(token);
         string data;
-        while (is) {  // there is content coming from the input stream
-            string content;
-            getline(is, content);
-            data += content + "\n";
-        }
-        is.close();
-        if (data.empty()) { return 1; }
+        if (read_f(token, &data)) { return 1; }
+        *iter = data;
         return EXEC_RESULT_BOUNCE_FGET;  // 2=call again
     }
 }
@@ -139,5 +119,32 @@ int file_command::file_access(string* buf_p) {
     
     *buf_p = "File access was set to " + access_level + ".\n";
     
+    return 0;
+}
+
+int read_f(string path, string* data_p) {
+    FILE* inf = fopen(path.c_str(), "rb");
+    if (inf == nullptr) { return 1; }
+    char memarray[MEMARRAY_SIZE];
+    unsigned long size;
+    while ((size = fread(memarray, sizeof(char), MEMARRAY_SIZE, inf)) > 0) {
+        for (unsigned int i = 0; i < size; i++) {
+            data_p->push_back(memarray[i]);
+        }
+    }
+    fclose(inf);
+    return 0;
+}
+
+int write_f(string path, string data) {
+    FILE* outf = fopen(path.c_str(), "wb");
+    if (outf == nullptr) { return 1; }
+    const char* d_cstr = data.c_str();
+    for (unsigned long i = 0; i < data.length(); ) {
+        unsigned long size = MEMARRAY_SIZE;
+        if (size > data.length() - i) { size = data.length() - i; }
+        i += fwrite(d_cstr + i, sizeof(char), size, outf);
+    }
+    fclose(outf);
     return 0;
 }

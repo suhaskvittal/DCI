@@ -10,6 +10,9 @@
 
 #include "../include/node.h"
 #include "../include/command.h"
+#include "../include/auth_command.h"
+#include "../include/dci_utils.h"
+
 
 #if defined(_WIN32)
 #include <conio.h>
@@ -48,7 +51,7 @@ int main(int argc, char* argv[]) {
     mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(h_stdout, mode);
 #endif
-    cout << color_client("Started. Initializing local instance...") << endl;
+    cout << color_system("Started. Initializing local instance...") << endl;
     SOCKET max_master_socket;
     fd_set master;
     FD_ZERO(&master);
@@ -59,7 +62,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     if (argc == 2) {
-        cout << color_client("Initialized. Starting network...") << endl;
+        cout << color_system("Initialized. Starting network...") << endl;
 
         max_master_socket = client;
         FD_SET(client, &master);
@@ -71,7 +74,7 @@ int main(int argc, char* argv[]) {
         char* access_port = argv[3];
         
         SOCKET access_peer;
-        cout << color_client("Connecting to access point...") << endl;
+        cout << color_system("Connecting to access point...") << endl;
         if (connect_to_access(access_host, access_port, &access_peer)) {
             cerr << color_error("Connect to access point failed (" + to_string(GETSOCKETERRNO()) + ").") << endl;
             return 1;
@@ -94,12 +97,12 @@ int main(int argc, char* argv[]) {
     FD_SET(0, &master);  // 0 is file descriptor for stdin on UNIX and LINUX
 #endif
     
-    cout << color_client("Instance initialized. Ready to send input to network (to close your connection to the network, type \"" + string(EXIT_KEYWORD) + "\"): ") << endl;
+    cout << color_system("Instance initialized. Ready to send input to network (to close your connection to the network, type \"" + string(EXIT_KEYWORD) + "\"): ") << endl;
     while (1) {
 		struct timeval select_timeout = { 0, 100000 };  // 0.1 s timeout
         fd_set reads = master;
         if (select(max_master_socket + 1, &reads, 0, 0, &select_timeout) < 0) {
-            cerr << color_client("select() failed (" + to_string(GETSOCKETERRNO()) + ").") << endl;
+            cerr << color_system("select() failed (" + to_string(GETSOCKETERRNO()) + ").") << endl;
             break;  // close the connection
         }
         
@@ -133,7 +136,7 @@ int main(int argc, char* argv[]) {
                                 host_buf, sizeof(host_buf),
                                 0, 0,
                                 NI_NUMERICHOST);
-                    cout << color_client("User at " + string(host_buf) + " has connected to the network.") << endl;  // add peer to fd_set and the sll
+                    cout << color_system("User at " + string(host_buf) + " has connected to the network.") << endl;  // add peer to fd_set and the sll
                     FD_SET(peer, &master);
                     add_to_network(NODE(peer, host_buf, ""));
                     
@@ -149,7 +152,7 @@ int main(int argc, char* argv[]) {
                     */
                     int n_peers;
                     i_recv(node_socket, &n_peers);
-                    cout << color_client("Receiving " + to_string(n_peers) + " peers from access point.") << endl;
+                    cout << color_system("Receiving " + to_string(n_peers) + " peers from access point.") << endl;
                     for (int i = 0; i < n_peers; i++) {
                         char* host_buf; char* port_buf;
                         if (b_recv(node_socket, &host_buf) < 0 || b_recv(node_socket, &port_buf) < 0) {
@@ -166,7 +169,7 @@ int main(int argc, char* argv[]) {
                         delete[] host_buf; delete[] port_buf;
                     }
                     if (instance_state == INSTANCE_STATE_CLOSED) { break; }  // some error has occurred
-                    cout << color_client("Succeeded connecting to network.") << endl;
+                    cout << color_system("Succeeded connecting to network.") << endl;
                     instance_state = INSTANCE_STATE_DEFAULT;
                 } else if (instance_state == INSTANCE_STATE_DEFAULT) {
                     char* msg;
@@ -272,7 +275,7 @@ int main(int argc, char* argv[]) {
     }
     network_sll.clear();
         
-    cout << color_client("Closing down...") << endl;
+    cout << color_system("Closing down...") << endl;
     CLOSESOCKET(client);
 #if defined(WIN32)
     WSACleanup();  // shutdown winsock
@@ -284,16 +287,4 @@ void add_to_network(struct node node) {
     struct node* node_p = new struct node(node);
     network_sll.push_front(node_p);
     network_size++;
-}
-    
-string color_client(string s) {
-    return CLIENT_MSG_COLOR + s + ANSI_COLOR_RESET;
-}
-
-string color_peer(string s) {
-    return PEER_MSG_COLOR + s + ANSI_COLOR_RESET;
-}
-
-string color_error(string s) {
-    return ERROR_MSG_COLOR + s + ANSI_COLOR_RESET;
 }
