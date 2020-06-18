@@ -178,6 +178,7 @@ int main(int argc, char* argv[]) {
                         FD_CLR(node_socket, &master);
                         CLOSESOCKET(node_socket);
                         nsll_curr = network_sll.erase_after(nsll_prev);
+                        network_size--;
                         delete network_node;
                         cout << color_error("Closing connection with node " + to_string(node_socket) + ".") << endl;
                         continue;
@@ -189,6 +190,7 @@ int main(int argc, char* argv[]) {
                             FD_CLR(node_socket, &master);
                             CLOSESOCKET(node_socket);
                             nsll_curr = network_sll.erase_after(nsll_prev);
+                            network_size--;
                             delete network_node;
                             cout << color_error("Closing connection with node " + to_string(node_socket) + ".") << endl;
                             continue;  // just close the connection with the peer
