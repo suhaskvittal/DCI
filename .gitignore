@@ -4,3 +4,4 @@ DCI.xcodeproj
 DCI/data/
 valgrind-log*
 DCI/*.dSYM
+*.zip
